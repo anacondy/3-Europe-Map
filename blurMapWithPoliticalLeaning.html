@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>European Political Map & Legislature Data (2024-2025)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a2e; /* Dark background */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+}
+
+#map {
+    height: 100vh;
+    width: 100vw;
+    background: transparent;
+}
+
+/* Glassmorphic Overlay */
+.glass-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    pointer-events: none;
+    z-index: 400;
+}
+
+/* Glassmorphic Popups */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: rgba(40, 44, 52, 0.85); /* Darker glass */
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    color: #eee;
+    border-radius: 12px;
+}
+
+.leaflet-popup-content {
+    margin: 15px;
+    line-height: 1.5;
+}
+
+.popup-title {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 8px;
+}
+
+.popup-title img {
+    margin-right: 10px;
+    border-radius: 4px;
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.95em;
+}
+
+.data-label {
+    font-weight: 500;
+    color: #aaa;
+}
+
+.data-value {
+    font-weight: bold;
+}
+
+/* Progress Bars */
+.progress-container {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    height: 12px;
+    width: 100%;
+    margin: 8px 0 12px 0;
+    overflow: hidden;
+    display: flex;
+}
+
+.progress-bar {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.ruling-bar { background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); }
+.opposition-bar { background: linear-gradient(90deg, #ff6a88 0%, #ff99ac 100%); }
+
+/* Political Leaning Icons & Colors */
+.leaning-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-right: 6px;
+    box-shadow: 0 0 5px rgba(255,255,255,0.4);
+}
+.leaning-progressive { background: linear-gradient(135deg, #36D1DC, #5B86E5); }
+.leaning-conservative { background: linear-gradient(135deg, #FF416C, #FF4B2B); }
+.leaning-centrist { background: linear-gradient(135deg, #A8C0FF, #3F2B96); }
+.leaning-eurosceptic { background: linear-gradient(135deg, #8E2DE2, #4A00E0); }
+
+/* Glassmorphic Legend */
+.legend {
+    background: rgba(40, 44, 52, 0.75);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    color: #eee;
+    border-radius: 12px;
+    padding: 15px;
+    line-height: 1.6;
+}
+
+.legend h4 {
+    margin: 0 0 10px;
+    color: #fff;
+    font-size: 1.1em;
+    text-align: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background 0.3s;
+    padding: 4px;
+    border-radius: 6px;
+}
+.legend-item:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.eu-parliament-section {
+    margin-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 10px;
+}
+.eu-group {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    margin-bottom: 3px;
+}
+.eu-group-name {
+    display: flex;
+    align-items: center;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="glass-overlay"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+// --- Data Configuration ---
+// NOTE: The data below is a snapshot based on the provided search results and general knowledge for 2024-2025.
+// It is intended for illustrative purposes and may not reflect real-time changes in rapidly evolving political situations.
+const countryData = {
+    "Germany": {
+        coords: [51.1657, 10.4515],
+        flag: "🇩🇪",
+        legislature: "Bundestag",
+        totalSeats: 630,
+        ruling: 324, // CDU/CSU (188) + S&D (136) - Hypothetical Grand Coalition based on EP data
+        opposition: 306,
+        rulingParty: "CDU/CSU & SPD",
+        leaning: "centrist"
+    },
+    "France": {
+        coords: [46.2276, 2.2137],
+        flag: "🇫🇷",
+        legislature: "National Assembly",
+        totalSeats: 577,
+        ruling: 250, // Approx for Macron's alliance + others
+        opposition: 327, // RN, NFP, etc.
+        rulingParty: "Ensemble",
+        leaning: "centrist"
+    },
+    "United Kingdom": {
+        coords: [55.3781, -3.4360],
+        flag: "🇬🇧",
+        legislature: "House of Commons",
+        totalSeats: 650,
+        ruling: 412, // Labour (2024 election)
+        opposition: 238,
+        rulingParty: "Labour Party",
+        leaning: "progressive"
+    },
+    "Italy": {
+        coords: [41.8719, 12.5674],
+        flag: "🇮🇹",
+        legislature: "Chamber of Deputies",
+        totalSeats: 400,
+        ruling: 237, // Centre-right coalition
+        opposition: 163,
+        rulingParty: "Brothers of Italy (Coalition)",
+        leaning: "conservative"
+    },
+    "Spain": {
+        coords: [40.4637, -3.7492],
+        flag: "🇪🇸",
+        legislature: "Congress of Deputies",
+        totalSeats: 350,
+        ruling: 179, // PSOE-Sumar coalition + support
+        opposition: 171,
+        rulingParty: "PSOE & Sumar",
+        leaning: "progressive"
+    },
+    "Poland": {
+        coords: [51.9194, 19.1451],
+        flag: "🇵🇱",
+        legislature: "Sejm",
+        totalSeats: 460,
+        ruling: 248, // Civic Coalition + Third Way + The Left
+        opposition: 212, // Law and Justice (PiS) + Confederation
+        rulingParty: "Civic Coalition (Coalition)",
+        leaning: "centrist"
+    },
+    "Netherlands": {
+        coords: [52.1326, 5.2913],
+        flag: "🇳🇱",
+        legislature: "House of Representatives",
+        totalSeats: 150,
+        ruling: 88, // PVV, VVD, NSC, BBB coalition
+        opposition: 62,
+        rulingParty: "PVV (Coalition)",
+        leaning: "conservative"
+    },
+    "Sweden": {
+        coords: [60.1282, 18.6435],
+        flag: "🇸🇪",
+        legislature: "Riksdag",
+        totalSeats: 349,
+        ruling: 176, // Moderate-led coalition with SD support
+        opposition: 173,
+        rulingParty: "Moderates (Coalition)",
+        leaning: "conservative"
+    },
+    "Hungary": {
+        coords: [47.1625, 19.5033],
+        flag: "🇭🇺",
+        legislature: "National Assembly",
+        totalSeats: 199,
+        ruling: 135, // Fidesz-KDNP
+        opposition: 64,
+        rulingParty: "Fidesz-KDNP",
+        leaning: "eurosceptic"
+    },
+    "Austria": {
+        coords: [47.5162, 14.5501],
+        flag: "🇦🇹",
+        legislature: "National Council",
+        totalSeats: 183,
+        ruling: 97, // ÖVP-Green coalition
+        opposition: 86,
+        rulingParty: "ÖVP & Greens",
+        leaning: "centrist"
+    },
+    "Denmark": {
+        coords: [56.2639, 9.5018],
+        flag: "🇩🇰",
+        legislature: "Folketing",
+        totalSeats: 179,
+        ruling: 89, // Social Democrats-Venstre-Moderates
+        opposition: 90,
+        rulingParty: "Social Democrats (Coalition)",
+        leaning: "centrist"
+    },
+    "Portugal": {
+        coords: [39.3999, -8.2245],
+        flag: "🇵🇹",
+        legislature: "Assembly of the Republic",
+        totalSeats: 230,
+        ruling: 80, // Democratic Alliance (minority)
+        opposition: 150,
+        rulingParty: "Democratic Alliance",
+        leaning: "conservative"
+    }
+};
+
+const euParliamentData = {
+    totalSeats: 720,
+    groups: [
+        { name: "EPP (Centre-Right)", seats: 188, color: "#0155A0" },
+        { name: "S&D (Centre-Left)", seats: 136, color: "#FF0000" },
+        { name: "PfE (Far-Right)", seats: 84, color: "#003366" },
+        { name: "ECR (Conservative)", seats: 78, color: "#1866a5" },
+        { name: "Renew (Liberal)", seats: 77, color: "#0099FF" },
+        { name: "Greens/EFA", seats: 53, color: "#008200" },
+        { name: "The Left", seats: 46, color: "#e42527" },
+        { name: "ESN (Far-Right)", seats: 25, color: "#212F3C" },
+        { name: "Non-Inscrits", seats: 33, color: "#666666" }
+    ]
+};
+
+// --- Map Initialization ---
+const map = L.map('map', {
+    center: [50.0, 10.0],
+    zoom: 4.5,
+    zoomControl: false,
+    attributionControl: false
+});
+
+// --- CartoDB Dark Matter Tile Layer for the base map ---
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    subdomains: 'abcd'
+}).addTo(map);
+
+
+// --- Helper Functions ---
+function getLeaningColor(leaning) {
+    switch (leaning) {
+        case "progressive": return "linear-gradient(135deg, #36D1DC, #5B86E5)";
+        case "conservative": return "linear-gradient(135deg, #FF416C, #FF4B2B)";
+        case "centrist": return "linear-gradient(135deg, #A8C0FF, #3F2B96)";
+        case "eurosceptic": return "linear-gradient(135deg, #8E2DE2, #4A00E0)";
+        default: return "#999";
+    }
+}
+
+function createPopupContent(country, data) {
+    const rulingPercent = ((data.ruling / data.totalSeats) * 100).toFixed(1);
+    const oppositionPercent = ((data.opposition / data.totalSeats) * 100).toFixed(1);
+    const leaningColor = getLeaningColor(data.leaning);
+
+    return `
+        <div class="popup-title">
+            ${data.flag} ${country}
+        </div>
+        <div class="data-row">
+            <span class="data-label">Legislature:</span>
+            <span class="data-value">${data.legislature}</span>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Total Seats:</span>
+            <span class="data-value">${data.totalSeats}</span>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar ruling-bar" style="width: ${rulingPercent}%" title="Ruling: ${rulingPercent}%"></div>
+            <div class="progress-bar opposition-bar" style="width: ${oppositionPercent}%" title="Opposition: ${oppositionPercent}%"></div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Ruling Coalition:</span>
+            <span class="data-value" style="color: #4facfe">${data.ruling} (${rulingPercent}%)</span>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Opposition:</span>
+            <span class="data-value" style="color: #ff6a88">${data.opposition} (${oppositionPercent}%)</span>
+        </div>
+        <div class="data-row" style="margin-top: 10px; align-items: center;">
+            <span class="data-label">Ruling Party/Coalition:</span>
+            <span class="data-value">${data.rulingParty}</span>
+        </div>
+        <div class="data-row" style="align-items: center;">
+            <span class="data-label">Political Leaning:</span>
+            <span class="data-value" style="display: flex; align-items: center;">
+                <span class="leaning-icon" style="background: ${leaningColor}"></span>
+                ${data.leaning.charAt(0).toUpperCase() + data.leaning.slice(1)}
+            </span>
+        </div>
+    `;
+}
+
+// --- Add Markers ---
+const markers = {};
+for (const [country, data] of Object.entries(countryData)) {
+    const marker = L.circleMarker(data.coords, {
+        radius: 8,
+        fillColor: getLeaningColor(data.leaning).split(',')[1].trim(), // Use the second color of the gradient
+        color: "#fff",
+        weight: 2,
+        opacity: 0.8,
+        fillOpacity: 0.8
+    }).addTo(map);
+
+    marker.bindPopup(createPopupContent(country, data));
+    markers[country] = marker;
+
+    // Add hover effect
+    marker.on('mouseover', function (e) {
+        this.setStyle({ weight: 4, radius: 10, opacity: 1 });
+    });
+    marker.on('mouseout', function (e) {
+        this.setStyle({ weight: 2, radius: 8, opacity: 0.8 });
+    });
+}
+
+// --- Special Marker for European Parliament ---
+const euMarker = L.marker([50.8466, 4.3528], { // Brussels
+    icon: L.divIcon({
+        className: 'eu-icon',
+        html: '<span style="font-size: 24px;">🇪🇺</span>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    })
+}).addTo(map);
+
+let euPopupContent = `
+    <div class="popup-title">🇪🇺 European Parliament (2024-2029)</div>
+    <div class="data-row">
+        <span class="data-label">Total Seats:</span>
+        <span class="data-value">${euParliamentData.totalSeats}</span>
+    </div>
+    <div class="eu-parliament-section" style="border: none; padding-top: 5px;">
+`;
+euParliamentData.groups.forEach(group => {
+    euPopupContent += `
+        <div class="eu-group">
+            <span class="eu-group-name">
+                <span class="leaning-icon" style="background: ${group.color}; width: 10px; height: 10px; margin-right: 5px;"></span>
+                ${group.name}
+            </span>
+            <span class="data-value">${group.seats}</span>
+        </div>
+    `;
+});
+euPopupContent += `</div>`;
+euMarker.bindPopup(euPopupContent);
+
+
+// --- Create Legend ---
+const legend = L.control({ position: 'bottomright' });
+
+legend.onAdd = function (map) {
+    const div = L.DomUtil.create('div', 'legend glass-legend');
+    div.innerHTML = '<h4>Political Leaning</h4>';
+
+    const leanings = [
+        { name: "Progressive", class: "leaning-progressive" },
+        { name: "Centrist", class: "leaning-centrist" },
+        { name: "Conservative", class: "leaning-conservative" },
+        { name: "Eurosceptic/Far-Right", class: "leaning-eurosceptic" }
+    ];
+
+    leanings.forEach(leaning => {
+        div.innerHTML += `
+            <div class="legend-item" onclick="filterMarkers('${leaning.name.toLowerCase().split('/')[0]}')">
+                <span class="leaning-icon ${leaning.class}"></span>
+                <span>${leaning.name}</span>
+            </div>
+        `;
+    });
+
+    div.innerHTML += `
+        <div class="eu-parliament-section">
+            <h4>EU Parliament Groups</h4>
+    `;
+    euParliamentData.groups.forEach(group => {
+        div.innerHTML += `
+            <div class="eu-group">
+                <span class="eu-group-name">
+                    <span class="leaning-icon" style="background: ${group.color}; width: 8px; height: 8px; margin-right: 5px;"></span>
+                    ${group.name.split('(')[0].trim()}
+                </span>
+                <span class="data-value" style="font-size: 0.9em;">${group.seats}</span>
+            </div>
+        `;
+    });
+    div.innerHTML += '</div>';
+
+    div.innerHTML += `
+        <div style="margin-top: 15px; font-size: 0.8em; color: #888; text-align: center;">
+            *Data is illustrative for 2024-2025 and subject to change.
+        </div>
+    `;
+
+    return div;
+};
+
+legend.addTo(map);
+
+// --- Filter Function ---
+function filterMarkers(leaning) {
+    for (const [country, marker] of Object.entries(markers)) {
+        if (leaning === 'all' || countryData[country].leaning.includes(leaning)) {
+            map.addLayer(marker);
+        } else {
+            map.removeLayer(marker);
+        }
+    }
+}
+</script>
+
+</body>
+</html>
